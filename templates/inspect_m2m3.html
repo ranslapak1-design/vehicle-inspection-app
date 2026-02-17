@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>בוחן רכב - סיווג מרכב</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        h1 { font-size: 1.6rem; text-align: center; margin-bottom: 8px; }
+        .subtitle { text-align: center; color: #94a3b8; margin-bottom: 12px; font-size: 1rem; }
+        .breadcrumb {
+            background: rgba(255,255,255,0.1);
+            padding: 8px 20px; border-radius: 12px;
+            text-align: center; margin-bottom: 20px;
+            max-width: 500px; margin: 0 auto 20px;
+            font-size: 0.85rem; color: #93c5fd;
+            direction: ltr; text-align: center;
+        }
+        .breadcrumb strong { color: #fff; }
+
+        .search-box {
+            max-width: 500px; margin: 0 auto 16px;
+        }
+        .search-box input {
+            width: 100%; padding: 14px 16px;
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 14px;
+            color: #fff; font-size: 1rem;
+            outline: none;
+        }
+        .search-box input:focus { border-color: #3b82f6; }
+        .search-box input::placeholder { color: #64748b; }
+
+        .options-list {
+            max-width: 500px; margin: 0 auto;
+            display: flex; flex-direction: column; gap: 8px;
+            max-height: 60vh; overflow-y: auto;
+            padding-left: 4px; padding-right: 4px;
+        }
+        .opt-btn {
+            display: block; padding: 16px;
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 14px;
+            color: #fff; font-size: 1rem;
+            text-align: right;
+            cursor: pointer;
+            transition: transform 0.1s, border-color 0.2s, background 0.2s;
+            text-decoration: none;
+        }
+        .opt-btn:active { transform: scale(0.98); }
+        .opt-btn:hover { border-color: #06b6d4; background: rgba(6, 182, 212, 0.1); }
+        .opt-btn.selected {
+            border-color: #22c55e;
+            background: rgba(34, 197, 94, 0.15);
+        }
+        .opt-btn .code {
+            font-size: 0.8rem; color: #94a3b8;
+            margin-top: 2px; direction: ltr; text-align: right;
+        }
+        .opt-btn.hidden { display: none; }
+
+        .back-link {
+            display: block; text-align: center;
+            margin-top: 24px; color: #93c5fd;
+            text-decoration: none; font-size: 1rem;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+            background: #22c55e; color: #fff;
+            padding: 14px 28px; border-radius: 12px;
+            font-weight: 600; z-index: 400;
+            display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .toast.error { background: #ef4444; }
+        .toast.show { display: block; animation: fadeInOut 3s forwards; }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+            10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .count-badge {
+            text-align: center; color: #64748b;
+            font-size: 0.85rem; margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>סיווג מרכב - {{ category }}</h1>
+    <div class="breadcrumb">
+        <strong>{{ vehicle_name }}</strong>
+    </div>
+    <p class="subtitle">בחר סיווג מרכב מהרשימה</p>
+
+    <div class="search-box">
+        <input type="text" id="search" placeholder="חפש סיווג..." oninput="filterOptions()">
+    </div>
+    <div class="count-badge" id="count-badge"></div>
+
+    <div class="options-list" id="options-list">
+        <!-- Filled by JS -->
+    </div>
+
+    <a href="/category/{{ manufacturer }}/{{ date_folder }}/{{ vehicle_name }}" class="back-link">→ חזרה לבחירת סיווג</a>
+
+    <div class="toast" id="toast"></div>
+
+<script>
+const manufacturer = "{{ manufacturer }}";
+const dateFolder = "{{ date_folder }}";
+const vehicleName = "{{ vehicle_name }}";
+const options = {{ options | safe }};
+
+function buildList() {
+    const list = document.getElementById("options-list");
+    options.forEach((opt, i) => {
+        const btn = document.createElement("button");
+        btn.className = "opt-btn";
+        btn.dataset.index = i;
+        btn.dataset.text = opt;
+        // Split name and code (e.g. "משא תומך - 270")
+        const parts = opt.split(" - ");
+        if (parts.length === 2) {
+            btn.innerHTML = `<div>${parts[0]}</div><div class="code">${parts[1]}</div>`;
+        } else {
+            btn.textContent = opt;
+        }
+        btn.onclick = () => selectClassification(opt, btn);
+        list.appendChild(btn);
+    });
+    updateCount();
+}
+
+function filterOptions() {
+    const query = document.getElementById("search").value.trim().toLowerCase();
+    document.querySelectorAll(".opt-btn").forEach(btn => {
+        const text = btn.dataset.text.toLowerCase();
+        btn.classList.toggle("hidden", query && !text.includes(query));
+    });
+    updateCount();
+}
+
+function updateCount() {
+    const visible = document.querySelectorAll(".opt-btn:not(.hidden)").length;
+    document.getElementById("count-badge").textContent = `${visible} סיווגים`;
+}
+
+async function selectClassification(value, btn) {
+    // Visual feedback
+    document.querySelectorAll(".opt-btn").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+
+    try {
+        const resp = await fetch("/api/save_classification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                manufacturer,
+                date: dateFolder,
+                vehicle: vehicleName,
+                classification: value
+            })
+        });
+        const result = await resp.json();
+        if (result.ok) {
+            showToast("סיווג נשמר: " + value);
+        } else {
+            showToast("שגיאה: " + result.error, true);
+        }
+    } catch (err) {
+        showToast("שגיאת תקשורת", true);
+    }
+}
+
+function showToast(msg, isError = false) {
+    const toast = document.getElementById("toast");
+    toast.textContent = msg;
+    toast.className = "toast show" + (isError ? " error" : "");
+    setTimeout(() => { toast.className = "toast"; }, 3500);
+}
+
+document.addEventListener("DOMContentLoaded", buildList);
+</script>
+</body>
+</html>

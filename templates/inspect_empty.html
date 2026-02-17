@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>בוחן רכב - {{ category }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: #0f172a;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 20px;
+            padding: 40px 30px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        .card .icon { font-size: 3rem; margin-bottom: 16px; }
+        .card h2 { font-size: 1.4rem; margin-bottom: 10px; }
+        .card .vehicle { color: #93c5fd; font-size: 0.9rem; margin-bottom: 20px; direction: ltr; }
+        .card .msg { color: #94a3b8; font-size: 1rem; line-height: 1.6; }
+        .back-link {
+            margin-top: 30px;
+            color: #93c5fd;
+            text-decoration: none;
+            font-size: 1.1rem;
+            padding: 14px 30px;
+            border: 2px solid #93c5fd;
+            border-radius: 14px;
+            transition: background 0.2s;
+        }
+        .back-link:active { background: rgba(147, 197, 253, 0.15); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">🚧</div>
+        <h2>סיווג {{ category }}</h2>
+        <div class="vehicle">{{ vehicle_name }}</div>
+        <div class="msg">לשוניות הבדיקה עבור סיווג זה טרם הוגדרו.<br>יתווספו בהמשך.</div>
+    </div>
+    <a href="/category/{{ manufacturer }}/{{ date_folder }}/{{ vehicle_name }}" class="back-link">→ חזרה לבחירת סיווג</a>
+</body>
+</html>

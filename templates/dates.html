@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>בוחן רכב - {{ manufacturer }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        h1 { font-size: 1.8rem; text-align: center; margin-bottom: 8px; }
+        .subtitle { text-align: center; color: #94a3b8; margin-bottom: 30px; font-size: 1rem; }
+        .card-list {
+            display: flex; flex-direction: column; gap: 14px;
+            max-width: 500px; margin: 0 auto;
+        }
+        .card {
+            display: flex; align-items: center; gap: 14px;
+            padding: 18px 16px;
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 16px;
+            text-decoration: none; color: #fff;
+            transition: transform 0.12s, border-color 0.2s, box-shadow 0.2s;
+        }
+        .card:active { transform: scale(0.97); }
+        .card:hover { border-color: #3b82f6; box-shadow: 0 4px 20px rgba(59, 130, 246, 0.2); }
+        .card-icon {
+            width: 50px; height: 50px;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; flex-shrink: 0;
+        }
+        .card-info { flex: 1; }
+        .card-name { font-size: 1.15rem; font-weight: 600; direction: ltr; text-align: right; }
+        .card-hint { font-size: 0.78rem; color: #94a3b8; margin-top: 4px; }
+        .card-arrow { font-size: 1.4rem; color: #64748b; }
+        .empty-state { text-align: center; color: #64748b; padding: 60px 20px; font-size: 1.1rem; }
+        .back-link {
+            display: block; text-align: center;
+            margin-top: 30px; color: #93c5fd;
+            text-decoration: none; font-size: 1rem;
+        }
+        .error-msg {
+            text-align: center; color: #ef4444; padding: 20px;
+            background: rgba(239,68,68,0.1); border-radius: 12px;
+            max-width: 500px; margin: 0 auto 20px;
+        }
+        .mfr-badge {
+            background: rgba(255,255,255,0.1);
+            padding: 8px 20px; border-radius: 12px;
+            text-align: center; margin-bottom: 20px;
+            max-width: 500px; margin: 0 auto 20px;
+        }
+        .mfr-badge span { color: #93c5fd; font-size: 0.9rem; }
+        .mfr-badge strong { color: #fff; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+    <h1>בוחן רכב</h1>
+    <div class="mfr-badge">
+        <span>יצרן: </span><strong>{{ manufacturer }}</strong>
+    </div>
+    <p class="subtitle">בחר תאריך</p>
+
+    {% if error %}
+    <div class="error-msg">{{ error }}</div>
+    {% endif %}
+
+    <div class="card-list">
+        {% if dates %}
+            {% for d in dates %}
+            <a href="/vehicles/{{ manufacturer }}/{{ d }}" class="card">
+                <div class="card-icon">📅</div>
+                <div class="card-info">
+                    <div class="card-name">{{ d }}</div>
+                    <div class="card-hint">לחץ לרשימת רכבים</div>
+                </div>
+                <div class="card-arrow">←</div>
+            </a>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <p>לא נמצאו תיקיות תאריכים</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <a href="/" class="back-link">→ חזרה ליצרנים</a>
+</body>
+</html>

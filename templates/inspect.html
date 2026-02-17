@@ -1,0 +1,2017 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>בוחן רכב - {{ category }}</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --accent: #3b82f6;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+            --border: #334155;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+
+        /* Top bar */
+        .topbar {
+            position: sticky; top: 0; z-index: 100;
+            background: var(--card);
+            padding: 12px 16px;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .topbar h2 { font-size: 1.2rem; }
+        .topbar .back { color: var(--accent); text-decoration: none; font-size: 1.1rem; }
+        .step-indicator {
+            display: flex; gap: 6px; align-items: center;
+        }
+        .step-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--border); transition: background 0.3s;
+        }
+        .step-dot.active { background: var(--accent); }
+        .step-dot.done { background: var(--success); }
+
+        /* Sections / Steps */
+        .step { display: none; padding: 16px; }
+        .step.active { display: block; }
+
+        /* Photo capture */
+        .photo-grid {
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        .photo-item {
+            background: var(--card);
+            border-radius: 14px;
+            padding: 16px;
+            border: 1px solid var(--border);
+        }
+        .photo-item h3 {
+            font-size: 1rem; margin-bottom: 10px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .photo-item h3 .num {
+            background: var(--accent);
+            color: #fff;
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        .photo-item h3 .check { color: var(--success); font-size: 1.3rem; display: none; }
+        .photo-item.captured h3 .check { display: inline; }
+        .photo-item.captured h3 .num { background: var(--success); }
+        .photo-preview {
+            width: 100%; border-radius: 10px;
+            max-height: 200px; object-fit: cover;
+            display: none; margin-top: 8px;
+        }
+        .photo-item.captured .photo-preview { display: block; }
+        .capture-btn {
+            width: 100%; padding: 14px;
+            background: var(--accent);
+            color: #fff; border: none;
+            border-radius: 10px; font-size: 1rem;
+            cursor: pointer; font-weight: 600;
+            margin-top: 8px;
+        }
+        .capture-btn.retake {
+            background: transparent;
+            border: 1px solid var(--muted);
+            color: var(--muted);
+            padding: 8px;
+            font-size: 0.85rem;
+        }
+
+        /* Form fields */
+        .form-section {
+            background: var(--card);
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+        }
+        .form-section h3 {
+            font-size: 1.1rem;
+            margin-bottom: 14px;
+            color: var(--accent);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+        }
+        .field-row {
+            margin-bottom: 14px;
+        }
+        .field-row label {
+            display: block;
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+        .field-row input, .field-row select {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+        }
+        .field-row input:focus {
+            border-color: var(--accent);
+        }
+
+        /* RED LIGHT - mismatch */
+        .field-row input.mismatch {
+            border-color: #ff0000 !important;
+            background: #cc0000 !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.6), inset 0 0 10px rgba(255, 0, 0, 0.3) !important;
+            animation: pulse-red 0.8s infinite;
+        }
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.6); }
+            50% { box-shadow: 0 0 35px rgba(255, 0, 0, 0.9); }
+        }
+        .field-row input.match {
+            border-color: var(--success) !important;
+            background: rgba(34, 197, 94, 0.15) !important;
+        }
+        .mismatch-hint {
+            font-size: 0.8rem;
+            color: #ff4444;
+            margin-top: 4px;
+            display: none;
+            font-weight: 600;
+        }
+        /* Show hint when input has mismatch - works for both nested and flat structures */
+        input.mismatch ~ .mismatch-hint,
+        .field-input:has(input.mismatch) .mismatch-hint,
+        .field-row:has(input.mismatch) > .mismatch-hint { display: block !important; }
+
+        /* Reference value from secretary shown below field */
+        .ref-value {
+            font-size: 0.78rem;
+            color: #facc15;
+            margin-top: 3px;
+            direction: rtl;
+            text-align: right;
+            unicode-bidi: plaintext;
+        }
+        .ref-value::before { content: "נתון מזכירה: "; }
+        .ref-value .ref-val-text {
+            direction: ltr;
+            unicode-bidi: embed;
+            display: inline;
+        }
+
+        /* Visual aid - reference photo next to field */
+        .field-with-photo {
+            display: flex; gap: 10px; align-items: flex-start;
+        }
+        .field-input { width: 100%; }
+        .field-with-photo .field-input { flex: 1; }
+        .field-with-photo .ref-thumb {
+            width: 80px; height: 80px;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 2px solid var(--border);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .field-with-photo .ref-thumb.empty {
+            background: var(--card);
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Bottom nav */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: var(--card);
+            border-top: 1px solid var(--border);
+            padding: 12px 16px;
+            display: flex; gap: 10px;
+            z-index: 100;
+        }
+        .nav-btn {
+            flex: 1; padding: 14px;
+            border: none; border-radius: 12px;
+            font-size: 1rem; font-weight: 600;
+            cursor: pointer; color: #fff;
+        }
+        .nav-btn.next { background: var(--accent); }
+        .nav-btn.prev { background: var(--border); }
+        .nav-btn.save { background: var(--success); }
+        .nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Camera modal */
+        .camera-modal {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: #000; z-index: 200;
+            flex-direction: column;
+        }
+        .camera-modal.open { display: flex; }
+        .camera-modal video {
+            flex: 1; object-fit: cover; width: 100%;
+        }
+        .camera-controls {
+            padding: 20px;
+            display: flex; justify-content: center; gap: 20px;
+            background: rgba(0,0,0,0.8);
+        }
+        .shutter-btn {
+            width: 70px; height: 70px;
+            border-radius: 50%;
+            border: 4px solid #fff;
+            background: transparent;
+            cursor: pointer;
+            position: relative;
+        }
+        .shutter-btn::after {
+            content: '';
+            position: absolute;
+            top: 6px; left: 6px; right: 6px; bottom: 6px;
+            border-radius: 50%;
+            background: #fff;
+        }
+        .cancel-cam {
+            background: transparent;
+            border: 2px solid #fff;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        /* Lightbox */
+        .lightbox {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 300;
+            align-items: center; justify-content: center;
+        }
+        .lightbox.open { display: flex; }
+        .lightbox img {
+            max-width: 95%; max-height: 90vh;
+            border-radius: 10px;
+        }
+        .lightbox-close {
+            position: absolute; top: 16px; left: 16px;
+            background: transparent; border: 2px solid #fff;
+            color: #fff; width: 40px; height: 40px;
+            border-radius: 50%; font-size: 1.3rem;
+            cursor: pointer;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+            background: var(--success); color: #fff;
+            padding: 14px 28px; border-radius: 12px;
+            font-weight: 600; z-index: 400;
+            display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .toast.error { background: var(--danger); }
+        .toast.show { display: block; animation: fadeInOut 3s forwards; }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+            10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Progress bar */
+        .progress-bar {
+            height: 3px; background: var(--accent);
+            transition: width 0.3s;
+            position: absolute; bottom: 0; left: 0;
+        }
+
+        /* Photo Editor Modal */
+        .editor-modal {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: #000; z-index: 250;
+            flex-direction: column;
+        }
+        .editor-modal.open { display: flex; }
+        .editor-topbar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 16px;
+            background: rgba(0,0,0,0.9);
+            flex-shrink: 0;
+        }
+        .editor-topbar span { color: #fff; font-size: 1rem; font-weight: 600; }
+        .editor-canvas-wrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            touch-action: none;
+        }
+        .editor-canvas-wrap canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        /* Crop overlay */
+        .crop-overlay {
+            position: absolute;
+            border: 3px solid #3b82f6;
+            background: rgba(59,130,246,0.1);
+            pointer-events: none;
+            display: none;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+        }
+        .crop-overlay.active { display: block; }
+        .editor-toolbar {
+            display: flex; gap: 10px; justify-content: center; align-items: center;
+            padding: 14px 16px;
+            background: rgba(0,0,0,0.9);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+        .editor-btn {
+            padding: 12px 20px;
+            border: 2px solid #475569;
+            border-radius: 12px;
+            background: transparent;
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .editor-btn:active { transform: scale(0.95); }
+        .editor-btn.rotate { border-color: #f59e0b; color: #f59e0b; }
+        .editor-btn.crop-toggle { border-color: #3b82f6; color: #3b82f6; }
+        .editor-btn.crop-toggle.active { background: #3b82f6; color: #fff; }
+        .editor-btn.confirm { background: #22c55e; border-color: #22c55e; color: #fff; }
+        .editor-btn.cancel { border-color: #ef4444; color: #ef4444; }
+
+        /* Searchable classification dropdown */
+        .searchable-select { position: relative; }
+        .class-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0; right: 0;
+            background: #1e293b;
+            border: 2px solid var(--accent);
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 50;
+        }
+        .class-dropdown.open { display: block; }
+        .class-option {
+            padding: 12px 14px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.1s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .class-option:last-child { border-bottom: none; }
+        .class-option:hover, .class-option:active { background: rgba(59, 130, 246, 0.2); }
+        .class-option .class-code {
+            color: #94a3b8;
+            font-size: 0.8rem;
+            direction: ltr;
+            flex-shrink: 0;
+            margin-right: 10px;
+        }
+
+        /* Inline camera button next to weighing fields */
+        .inline-cam-btn {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            border: 2px solid var(--accent);
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent);
+            font-size: 1.2rem;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
+        }
+        .inline-cam-btn:active { background: rgba(59, 130, 246, 0.4); transform: scale(0.95); }
+
+        /* Deficiency items */
+        .def-item {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            border-right: 4px solid var(--accent);
+        }
+        .def-item.source-pre { border-right-color: #f59e0b; }
+        .def-item.source-post { border-right-color: #ef4444; }
+        .def-item .def-num {
+            background: rgba(255,255,255,0.1);
+            color: var(--muted);
+            min-width: 28px; height: 28px;
+            border-radius: 8px;
+            text-align: center;
+            line-height: 28px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .def-item .def-body { flex: 1; }
+        .def-item .def-text { font-size: 0.95rem; }
+        .def-item .def-badges {
+            display: flex; gap: 6px; flex-wrap: wrap;
+            margin-top: 6px;
+        }
+        .def-badge {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 6px;
+            background: rgba(59,130,246,0.15);
+            color: #93c5fd;
+        }
+        .def-empty {
+            text-align: center;
+            color: var(--muted);
+            padding: 20px;
+            font-size: 0.95rem;
+        }
+        .note-row {
+            display: flex; gap: 8px; align-items: center;
+            margin-bottom: 10px;
+        }
+        .note-row .note-num {
+            background: rgba(255,255,255,0.08);
+            color: var(--muted);
+            min-width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            text-align: center;
+            line-height: 36px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .note-row input {
+            flex: 1;
+            padding: 10px;
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 0.9rem;
+            outline: none;
+        }
+        .note-row input:focus { border-color: var(--accent); }
+        .note-row input.has-value { border-color: rgba(34, 197, 94, 0.4); }
+
+        /* Device toggle (collapsible) */
+        .device-block {
+            margin-bottom: 10px;
+        }
+        .device-toggle {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .device-toggle:hover { border-color: var(--accent); }
+        .device-toggle.open {
+            border-color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        .toggle-arrow {
+            transition: transform 0.3s;
+            font-size: 0.9rem;
+        }
+        .device-toggle.open .toggle-arrow {
+            transform: rotate(-90deg);
+        }
+        .device-fields {
+            border: 2px solid var(--border);
+            border-top: none;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+            padding: 14px;
+            background: rgba(30, 41, 59, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+<!-- Info banner - vehicle details -->
+<div style="background:#1e3a5f;padding:10px 16px;text-align:center;font-size:0.85rem;color:#93c5fd;border-bottom:1px solid #334155;">
+    <span>רכב: <strong style="color:#fff;">{{ vehicle_name }}</strong></span>
+    <span style="margin:0 10px;">|</span>
+    <span>רישוי: <strong style="color:#fff;" id="banner-license">{{ license_num }}</strong></span>
+    <span style="margin:0 10px;">|</span>
+    <span>קטגוריה: <strong style="color:#fff;">{{ category }}</strong></span>
+</div>
+
+<!-- Top bar -->
+<div class="topbar">
+    <a href="/category/{{ manufacturer }}/{{ date_folder }}/{{ vehicle_name }}" class="back">→ חזרה</a>
+    <h2>בדיקת {{ category }}</h2>
+    <div class="step-indicator">
+        <div class="step-dot active" id="dot-0"></div>
+        <div class="step-dot" id="dot-1"></div>
+        <div class="step-dot" id="dot-2"></div>
+        <div class="step-dot" id="dot-3"></div>
+    </div>
+</div>
+
+<!-- STEP 0: Photo Capture -->
+<div class="step active" id="step-0">
+    <h2 style="margin-bottom:16px;">📸 צילום תמונות</h2>
+    <p style="color:var(--muted); margin-bottom:16px;">צלם את כל התמונות הנדרשות לפי הסדר</p>
+    <div class="photo-grid" id="photo-grid">
+        <!-- Filled by JS -->
+    </div>
+</div>
+
+<!-- STEP 1: Data Entry -->
+<div class="step" id="step-1">
+    <h2 style="margin-bottom:16px;">📋 הזנת נתונים</h2>
+
+    <!-- פרטי רכב -->
+    <div class="form-section">
+        <h3>פרטי זיהוי</h3>
+        <div class="field-row">
+            <label>מס' רישוי</label>
+            <div class="field-input">
+                <input type="text" id="f-license" data-field="license" inputmode="numeric">
+                <div class="mismatch-hint">⚠ לא תואם לנתוני המזכירה!</div>
+            </div>
+        </div>
+        <div class="field-row">
+            <label>צבע</label>
+            <div class="field-input">
+                <input type="text" id="f-color" data-field="color">
+                <div class="mismatch-hint">⚠ לא תואם לנתוני המזכירה!</div>
+            </div>
+        </div>
+        <div class="field-row">
+            <label>מקומות ישיבה ליד נהג</label>
+            <input type="number" id="f-seats_beside" data-field="seats_beside" inputmode="numeric">
+        </div>
+        <div class="field-row">
+            <label>מקומות ישיבה מאחורי נהג</label>
+            <input type="number" id="f-seats_behind" data-field="seats_behind" inputmode="numeric">
+        </div>
+        <div class="field-row">
+            <label>תא שינה</label>
+            <select id="f-sleeping" data-field="sleeping">
+                <option value="-">-</option>
+                <option value="V">V - יש</option>
+                <option value="X">X - אין</option>
+            </select>
+        </div>
+        <div class="field-row">
+            <label>מס' סרנים</label>
+            <div class="field-input">
+                <input type="number" id="f-num_axles" data-field="num_axles" inputmode="numeric">
+                <div class="mismatch-hint">⚠ לא תואם לנתוני המזכירה!</div>
+            </div>
+        </div>
+        <div class="field-row">
+            <label>מס' גלגלים</label>
+            <div class="field-input">
+                <input type="number" id="f-num_wheels" data-field="num_wheels" inputmode="numeric">
+                <div class="mismatch-hint">⚠ לא תואם לנתוני המזכירה!</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- צמיגים - with reference photos -->
+    <div class="form-section">
+        <h3>🔴 צמיגים (השוואה מול נתוני מזכירה)</h3>
+        <div class="field-row">
+            <label>צמיג סרן 1</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-tire1" data-field="tire1" data-validate="tire" dir="ltr">
+                    <div class="mismatch-hint">⚠ לא תואם לנתוני המזכירה!</div>
+                </div>
+                <img class="ref-thumb" data-photo="tire1" src="" alt="">
+            </div>
+        </div>
+        <div class="field-row">
+            <label>צמיג סרן 2</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-tire2" data-field="tire2" data-validate="tire" dir="ltr">
+                    <div class="mismatch-hint">⚠ לא תואם לנתוני המזכירה!</div>
+                </div>
+                <img class="ref-thumb" data-photo="tire2" src="" alt="">
+            </div>
+        </div>
+        <div class="field-row">
+            <label>צמיג סרן 3</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-tire3" data-field="tire3" data-validate="tire" dir="ltr">
+                    <div class="mismatch-hint">⚠ לא תואם לנתוני המזכירה!</div>
+                </div>
+                <img class="ref-thumb" data-photo="tire3" src="" alt="">
+            </div>
+        </div>
+        <div class="field-row">
+            <label>צמיג סרן 4</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-tire4" data-field="tire4" data-validate="tire" dir="ltr">
+                    <div class="mismatch-hint">⚠ לא תואם לנתוני המזכירה!</div>
+                </div>
+                <img class="ref-thumb" data-photo="tire4" src="" alt="">
+            </div>
+        </div>
+    </div>
+
+    <!-- שלדה וקטגוריה -->
+    <div class="form-section">
+        <h3>פרטי שלדה</h3>
+        <div class="field-row">
+            <label>מס' שלדה (VIN)</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-vin" data-field="vin">
+                    <div class="mismatch-hint">⚠ לא תואם לנתוני המזכירה!</div>
+                </div>
+                <img class="ref-thumb" data-photo="vin_stamp" src="" alt="">
+            </div>
+        </div>
+        <div class="field-row">
+            <label>קטגוריה</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-category" data-field="category" value="{{ category }}">
+                </div>
+                <img class="ref-thumb" data-photo="maker_label" src="" alt="">
+            </div>
+        </div>
+        <div class="field-row">
+            <label>סיווג</label>
+            <div class="searchable-select" id="classification-wrap">
+                <input type="text" id="f-classification" data-field="classification"
+                       placeholder="הקלד לחיפוש סיווג..."
+                       autocomplete="off"
+                       onfocus="openClassDropdown()" oninput="filterClassDropdown()">
+                <div class="class-dropdown" id="class-dropdown"></div>
+            </div>
+        </div>
+        <div class="field-row">
+            <label>תוצר</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-manufacturer" data-field="manufacturer">
+                </div>
+                <img class="ref-thumb" data-photo="maker_label" src="" alt="">
+            </div>
+        </div>
+        <div class="field-row">
+            <label>WVTA</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-wvta" data-field="wvta">
+                </div>
+                <img class="ref-thumb" data-photo="maker_label" src="" alt="">
+            </div>
+        </div>
+    </div>
+
+    <!-- התקנים -->
+    <div class="form-section">
+        <h3>🔧 התקנים</h3>
+        <div class="device-block" id="dev-block-1">
+            <button class="device-toggle" onclick="toggleDevice(1)">
+                <span>התקן 1</span><span class="toggle-arrow" id="arrow-1">◄</span>
+            </button>
+            <div class="device-fields" id="dev-fields-1" style="display:none;">
+                <div class="field-row"><label>ההתקן</label><div class="field-input"><input type="text" id="f-dev1_name" data-field="dev1_name"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+                <div class="field-row"><label>שם המתקין</label><div class="field-input"><input type="text" id="f-dev1_installer" data-field="dev1_installer"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+                <div class="field-row"><label>שם היצרן</label><div class="field-input"><input type="text" id="f-dev1_manufacturer" data-field="dev1_manufacturer"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+                <div class="field-row"><label>דגם</label><div class="field-input"><input type="text" id="f-dev1_model" data-field="dev1_model"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+                <div class="field-row"><label>מס' סידורי</label><div class="field-input"><input type="text" id="f-dev1_serial" data-field="dev1_serial"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+            </div>
+        </div>
+        <div class="device-block" id="dev-block-2">
+            <button class="device-toggle" onclick="toggleDevice(2)">
+                <span>התקן 2</span><span class="toggle-arrow" id="arrow-2">◄</span>
+            </button>
+            <div class="device-fields" id="dev-fields-2" style="display:none;">
+                <div class="field-row"><label>ההתקן</label><div class="field-input"><input type="text" id="f-dev2_name" data-field="dev2_name"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+                <div class="field-row"><label>שם המתקין</label><div class="field-input"><input type="text" id="f-dev2_installer" data-field="dev2_installer"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+                <div class="field-row"><label>שם היצרן</label><div class="field-input"><input type="text" id="f-dev2_manufacturer" data-field="dev2_manufacturer"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+                <div class="field-row"><label>דגם</label><div class="field-input"><input type="text" id="f-dev2_model" data-field="dev2_model"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+                <div class="field-row"><label>מס' סידורי</label><div class="field-input"><input type="text" id="f-dev2_serial" data-field="dev2_serial"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+            </div>
+        </div>
+        <div class="device-block" id="dev-block-3">
+            <button class="device-toggle" onclick="toggleDevice(3)">
+                <span>התקן 3</span><span class="toggle-arrow" id="arrow-3">◄</span>
+            </button>
+            <div class="device-fields" id="dev-fields-3" style="display:none;">
+                <div class="field-row"><label>ההתקן</label><div class="field-input"><input type="text" id="f-dev3_name" data-field="dev3_name"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+                <div class="field-row"><label>שם המתקין</label><div class="field-input"><input type="text" id="f-dev3_installer" data-field="dev3_installer"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+                <div class="field-row"><label>שם היצרן</label><div class="field-input"><input type="text" id="f-dev3_manufacturer" data-field="dev3_manufacturer"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+                <div class="field-row"><label>דגם</label><div class="field-input"><input type="text" id="f-dev3_model" data-field="dev3_model"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+                <div class="field-row"><label>מס' סידורי</label><div class="field-input"><input type="text" id="f-dev3_serial" data-field="dev3_serial"><div class="mismatch-hint">⚠ לא תואם!</div></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- משקלים -->
+    <div class="form-section">
+        <h3>🔴 משקלים (השוואה מול נתוני מזכירה)</h3>
+        <div class="field-row">
+            <label>כללי</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-weight_total" data-field="weight_total" data-validate="weight" inputmode="numeric">
+                    <div class="mismatch-hint">⚠ לא תואם לנתוני המזכירה!</div>
+                </div>
+                <img class="ref-thumb" data-photo="maker_label" src="" alt="">
+            </div>
+        </div>
+        <div class="field-row">
+            <label>מחובר</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-weight_coupled" data-field="weight_coupled" inputmode="numeric">
+                </div>
+                <img class="ref-thumb" data-photo="maker_label" src="" alt="">
+            </div>
+        </div>
+        <div class="field-row">
+            <label>משקל סרן 1</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-weight_axle1" data-field="weight_axle1" inputmode="numeric">
+                </div>
+                <img class="ref-thumb" data-photo="maker_label" src="" alt="">
+            </div>
+        </div>
+        <div class="field-row">
+            <label>משקל סרן 2</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-weight_axle2" data-field="weight_axle2" inputmode="numeric">
+                </div>
+                <img class="ref-thumb" data-photo="maker_label" src="" alt="">
+            </div>
+        </div>
+        <div class="field-row">
+            <label>משקל סרן 3</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-weight_axle3" data-field="weight_axle3" inputmode="numeric">
+                </div>
+                <img class="ref-thumb" data-photo="maker_label" src="" alt="">
+            </div>
+        </div>
+        <div class="field-row">
+            <label>משקל סרן 4</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-weight_axle4" data-field="weight_axle4" inputmode="numeric">
+                </div>
+                <img class="ref-thumb" data-photo="maker_label" src="" alt="">
+            </div>
+        </div>
+        <div class="field-row">
+            <label>קדמי</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-weight_front" data-field="weight_front" inputmode="numeric">
+                    <div class="mismatch-hint">⚠ לא תואם לנתוני המזכירה!</div>
+                </div>
+                <img class="ref-thumb" data-photo="maker_label" src="" alt="">
+            </div>
+        </div>
+        <div class="field-row">
+            <label>אחורי</label>
+            <div class="field-with-photo">
+                <div class="field-input">
+                    <input type="text" id="f-weight_rear" data-field="weight_rear" inputmode="numeric">
+                    <div class="mismatch-hint">⚠ לא תואם לנתוני המזכירה!</div>
+                </div>
+                <img class="ref-thumb" data-photo="maker_label" src="" alt="">
+            </div>
+        </div>
+    </div>
+
+    <!-- מידות -->
+    <div class="form-section">
+        <h3>🔴 מידות (מ"מ)</h3>
+        <div class="field-row">
+            <label>רוחק סרנים</label>
+            <div class="field-input">
+                <input type="text" id="f-axle_distance" data-field="axle_distance" inputmode="numeric">
+                <div class="mismatch-hint">⚠ רוחק סרנים לא תואם לנתוני המזכירה!</div>
+            </div>
+        </div>
+        <div class="field-row">
+            <label>אורך כללי</label>
+            <input type="text" id="f-total_length" data-field="total_length" inputmode="numeric">
+        </div>
+        <div class="field-row">
+            <label>אורך מרכב</label>
+            <input type="text" id="f-body_length" data-field="body_length" inputmode="numeric">
+        </div>
+        <div class="field-row">
+            <label>מרחק בין מרכז סרנים קדמיים לקצה מרכב קדמי</label>
+            <input type="text" id="f-front_axle_to_edge" data-field="front_axle_to_edge" inputmode="numeric">
+        </div>
+        <div class="field-row">
+            <label>מרחק בין מרכז סרנים אחוריים לקצה מרכב אחורי</label>
+            <input type="text" id="f-rear_axle_to_edge" data-field="rear_axle_to_edge" inputmode="numeric">
+        </div>
+        <div class="field-row">
+            <label>שלוחה אחורית</label>
+            <input type="text" id="f-rear_overhang" data-field="rear_overhang" inputmode="numeric">
+        </div>
+    </div>
+
+    <!-- שקילות בפועל -->
+    <div class="form-section">
+        <h3>⚖ שקילות בפועל</h3>
+
+        <!-- משקל בגשר -->
+        <div class="device-block" id="dev-block-bridge">
+            <button class="device-toggle" onclick="toggleDevice('bridge')">
+                <span>משקל בגשר</span><span class="toggle-arrow" id="arrow-bridge">◄</span>
+            </button>
+            <div class="device-fields" id="dev-fields-bridge" style="display:none;">
+                <div class="field-row">
+                    <label>משקל קבוצת סרנים קדמית</label>
+                    <div class="field-with-photo">
+                        <div class="field-input">
+                            <input type="text" id="f-bridge_front_axles" data-field="bridge_front_axles" inputmode="numeric">
+                        </div>
+                        <button class="inline-cam-btn" onclick="openCamera('weigh_bridge_front')">📷</button>
+                        <img class="ref-thumb" data-photo="weigh_bridge_front" src="" alt="">
+                    </div>
+                </div>
+                <div class="field-row">
+                    <label>משקל קבוצת סרנים אחורית</label>
+                    <div class="field-with-photo">
+                        <div class="field-input">
+                            <input type="text" id="f-bridge_rear_axles" data-field="bridge_rear_axles" inputmode="numeric">
+                        </div>
+                        <button class="inline-cam-btn" onclick="openCamera('weigh_bridge_rear')">📷</button>
+                        <img class="ref-thumb" data-photo="weigh_bridge_rear" src="" alt="">
+                    </div>
+                </div>
+                <div class="field-row">
+                    <label>משקל כללי</label>
+                    <div class="field-with-photo">
+                        <div class="field-input">
+                            <input type="text" id="f-bridge_total" data-field="bridge_total" inputmode="numeric">
+                        </div>
+                        <button class="inline-cam-btn" onclick="openCamera('weigh_bridge_total')">📷</button>
+                        <img class="ref-thumb" data-photo="weigh_bridge_total" src="" alt="">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- משקל ע"י הבוחן -->
+        <div class="device-block" id="dev-block-examweight">
+            <button class="device-toggle" onclick="toggleDevice('examweight')">
+                <span>משקל ע&quot;י הבוחן</span><span class="toggle-arrow" id="arrow-examweight">◄</span>
+            </button>
+            <div class="device-fields" id="dev-fields-examweight" style="display:none;">
+                <div class="field-row">
+                    <label>סרן 1 ימין</label>
+                    <div class="field-with-photo">
+                        <div class="field-input">
+                            <input type="text" id="f-exam_axle1_right" data-field="exam_axle1_right" inputmode="numeric">
+                        </div>
+                        <button class="inline-cam-btn" onclick="openCamera('weigh_axle1_right')">📷</button>
+                        <img class="ref-thumb" data-photo="weigh_axle1_right" src="" alt="">
+                    </div>
+                </div>
+                <div class="field-row">
+                    <label>סרן 1 שמאל</label>
+                    <div class="field-with-photo">
+                        <div class="field-input">
+                            <input type="text" id="f-exam_axle1_left" data-field="exam_axle1_left" inputmode="numeric">
+                        </div>
+                        <button class="inline-cam-btn" onclick="openCamera('weigh_axle1_left')">📷</button>
+                        <img class="ref-thumb" data-photo="weigh_axle1_left" src="" alt="">
+                    </div>
+                </div>
+                <div class="field-row">
+                    <label>סרן 2 ימין</label>
+                    <div class="field-with-photo">
+                        <div class="field-input">
+                            <input type="text" id="f-exam_axle2_right" data-field="exam_axle2_right" inputmode="numeric">
+                        </div>
+                        <button class="inline-cam-btn" onclick="openCamera('weigh_axle2_right')">📷</button>
+                        <img class="ref-thumb" data-photo="weigh_axle2_right" src="" alt="">
+                    </div>
+                </div>
+                <div class="field-row">
+                    <label>סרן 2 שמאל</label>
+                    <div class="field-with-photo">
+                        <div class="field-input">
+                            <input type="text" id="f-exam_axle2_left" data-field="exam_axle2_left" inputmode="numeric">
+                        </div>
+                        <button class="inline-cam-btn" onclick="openCamera('weigh_axle2_left')">📷</button>
+                        <img class="ref-thumb" data-photo="weigh_axle2_left" src="" alt="">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STEP 2: חוסרים (Deficiencies) -->
+<div class="step" id="step-2">
+    <h2 style="margin-bottom:16px;">חוסרים</h2>
+
+    <div class="form-section">
+        <div id="deficiency-all-list">
+            <p style="color:var(--muted);text-align:center;">טוען נתונים...</p>
+        </div>
+    </div>
+
+    <!-- Examiner notes (editable, auto-saved) -->
+    <div class="form-section">
+        <h3>הערות בוחן</h3>
+        <div id="examiner-notes-list"></div>
+    </div>
+
+    <!-- WhatsApp share -->
+    <div style="padding:16px 0;text-align:center;">
+        <button class="capture-btn" style="background:#25d366;max-width:400px;margin:0 auto;display:block;font-size:1.1rem;padding:16px;" onclick="shareWhatsApp()">📱 שלח חוסרים ב-WhatsApp</button>
+        <p style="color:var(--muted);font-size:0.8rem;margin-top:8px;">ישמור אוטומטית את ההערות, יפיק PDF וישלח</p>
+    </div>
+</div>
+
+<!-- STEP 3: Summary / Save -->
+<div class="step" id="step-3">
+    <h2 style="margin-bottom:16px;">✅ סיכום ושמירה</h2>
+    <div class="form-section">
+        <h3>סטטוס</h3>
+        <div id="summary-photos" style="margin-bottom:12px;"></div>
+        <div id="summary-mismatches" style="margin-bottom:12px;"></div>
+        <div id="summary-status"></div>
+    </div>
+</div>
+
+<!-- Bottom Navigation -->
+<div class="bottom-nav">
+    <button class="nav-btn prev" id="btn-prev" onclick="prevStep()" disabled>הקודם</button>
+    <button class="nav-btn next" id="btn-next" onclick="nextStep()">הבא →</button>
+    <button class="nav-btn save" id="btn-save" onclick="saveAll()" style="display:none;">💾 שמור הכל</button>
+</div>
+
+<!-- Camera Modal -->
+<div class="camera-modal" id="camera-modal">
+    <video id="camera-video" autoplay playsinline></video>
+    <div class="camera-controls">
+        <button class="cancel-cam" onclick="closeCamera()">ביטול</button>
+        <button class="shutter-btn" onclick="takePhoto()"></button>
+    </div>
+</div>
+
+<!-- Photo Editor Modal -->
+<div class="editor-modal" id="editor-modal">
+    <div class="editor-topbar">
+        <span id="editor-title">עריכת תמונה</span>
+    </div>
+    <div class="editor-canvas-wrap" id="editor-wrap">
+        <canvas id="editor-canvas"></canvas>
+        <div class="crop-overlay" id="crop-overlay"></div>
+    </div>
+    <div class="editor-toolbar">
+        <button class="editor-btn rotate" onclick="editorRotate()">🔄 סובב</button>
+        <button class="editor-btn crop-toggle" id="btn-crop-toggle" onclick="editorToggleCrop()">✂ חתוך</button>
+        <button class="editor-btn confirm" onclick="editorConfirm()">✓ אישור</button>
+        <button class="editor-btn cancel" onclick="editorCancel()">✕ ביטול</button>
+    </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <button class="lightbox-close">✕</button>
+    <img id="lightbox-img" src="">
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== Data =====
+const category = "{{ category }}";
+const manufacturer = "{{ manufacturer }}";
+const dateFolder = "{{ date_folder }}";
+const vehicleName = "{{ vehicle_name }}";
+const vehicleKey = "{{ vehicle_key }}";
+let secretary = {{ secretary | safe }};  // will be refreshed dynamically
+const classifications = {{ classifications | safe }};
+const photos = {};
+let currentStep = 0;
+let currentPhotoKey = null;
+let cameraStream = null;
+let secretaryLoaded = false;
+
+// ===== LocalStorage persistence keys =====
+const STORAGE_KEY_FORM = "inspect_" + vehicleKey + "_form";
+const STORAGE_KEY_PHOTOS = "inspect_" + vehicleKey + "_photos";
+const STORAGE_KEY_STEP = "inspect_" + vehicleKey + "_step";
+
+// Which secretary fields map to which form validation fields
+const VALIDATE_MAP = {
+    license: { refs: ["license"], label: "מס' רישוי" },
+    color: { refs: ["color"], label: "צבע" },
+    vin: { refs: ["vin"], label: "מס' שלדה" },
+    num_axles: { refs: ["num_axles"], label: "מס' סרנים" },
+    num_wheels: { refs: ["num_wheels"], label: "מס' גלגלים" },
+    tire1: { refs: ["tire_front", "tire_front_hr"], label: "צמיג קדמי" },
+    tire2: { refs: ["tire_rear", "tire_rear_hr"], label: "צמיג אחורי" },
+    tire3: { refs: ["tire_rear", "tire_rear_hr"], label: "צמיג אחורי" },
+    tire4: { refs: ["tire_rear", "tire_rear_hr"], label: "צמיג אחורי" },
+    axle_distance: { refs: ["axle_distance", "axle_dist_hr"], label: "רוחק סרנים" },
+    weight_total: { refs: ["weight_total", "total_weight"], label: "משקל כללי" },
+    weight_front: { refs: ["weight_front"], label: "משקל קדמי" },
+    weight_rear: { refs: ["weight_rear"], label: "משקל אחורי" },
+    manufacturer: { refs: ["manufacturer"], label: "תוצר" },
+    wvta: { refs: ["wvta"], label: "WVTA" },
+    dev1_name: { refs: ["sec_dev1_name"], label: "התקן 1" },
+    dev1_installer: { refs: ["sec_dev1_installer"], label: "שם מתקין התקן 1" },
+    dev1_manufacturer: { refs: ["sec_dev1_manufacturer"], label: "יצרן התקן 1" },
+    dev1_serial: { refs: ["sec_dev1_serial"], label: "מס\"ד התקן 1" },
+    dev1_model: { refs: ["sec_dev1_model"], label: "דגם התקן 1" },
+    dev2_name: { refs: ["sec_dev2_name"], label: "התקן 2" },
+    dev2_installer: { refs: ["sec_dev2_installer"], label: "שם מתקין התקן 2" },
+    dev2_manufacturer: { refs: ["sec_dev2_manufacturer"], label: "יצרן התקן 2" },
+    dev2_serial: { refs: ["sec_dev2_serial"], label: "מס\"ד התקן 2" },
+    dev2_model: { refs: ["sec_dev2_model"], label: "דגם התקן 2" },
+    dev3_name: { refs: ["sec_dev3_name"], label: "התקן 3" },
+    dev3_installer: { refs: ["sec_dev3_installer"], label: "שם מתקין התקן 3" },
+    dev3_manufacturer: { refs: ["sec_dev3_manufacturer"], label: "יצרן התקן 3" },
+    dev3_serial: { refs: ["sec_dev3_serial"], label: "מס\"ד התקן 3" },
+    dev3_model: { refs: ["sec_dev3_model"], label: "דגם התקן 3" },
+};
+
+const photoList = [
+    { key: "front",          label: "חזית" },
+    { key: "side1",          label: "צד ימין" },
+    { key: "side2",          label: "צד שמאל" },
+    { key: "rear",           label: "אחורה" },
+    { key: "vin_stamp",      label: "שלדה בהטבעה" },
+    { key: "maker_label",    label: "תווית יצרן" },
+    { key: "body_label",     label: "תווית יצרן מרכב" },
+    { key: "body_stamp",     label: "הטבעה יצרן מרכב" },
+    { key: "device1",        label: "תווית התקן 1" },
+    { key: "device2",        label: "תווית התקן 2" },
+    { key: "device3",        label: "תווית התקן 3" },
+    { key: "tire1",          label: "צמיג סרן 1" },
+    { key: "tire2",          label: "צמיג סרן 2" },
+    { key: "tire3",          label: "צמיג סרן 3" },
+    { key: "tire4",          label: "צמיג סרן 4" },
+    { key: "weigh_bridge_front", label: "שקילת גשר - קדמי", hidden: true },
+    { key: "weigh_bridge_rear",  label: "שקילת גשר - אחורי", hidden: true },
+    { key: "weigh_bridge_total", label: "שקילת גשר - כללי", hidden: true },
+    { key: "weigh_axle1_right",  label: "שקילת סרן 1 ימין", hidden: true },
+    { key: "weigh_axle1_left",   label: "שקילת סרן 1 שמאל", hidden: true },
+    { key: "weigh_axle2_right",  label: "שקילת סרן 2 ימין", hidden: true },
+    { key: "weigh_axle2_left",   label: "שקילת סרן 2 שמאל", hidden: true },
+];
+
+// ===== Init =====
+document.addEventListener("DOMContentLoaded", () => {
+    buildPhotoGrid();
+    buildClassificationDropdown();
+    setupValidation();
+    setupLicenseFetch();
+    setupAutoSave();
+    restoreFromStorage();   // restore saved data BEFORE updating UI
+    updateRefThumbs();
+    // Show initial ref values from pre-loaded secretary data
+    if (Object.keys(secretary).length > 0) {
+        secretaryLoaded = true;
+        updateRefValues();
+        revalidateAll();
+    }
+});
+
+// ===== Auto-save to localStorage on every change =====
+function setupAutoSave() {
+    // Save form fields on input
+    document.querySelectorAll("[data-field]").forEach(el => {
+        el.addEventListener("input", saveFormToStorage);
+        el.addEventListener("change", saveFormToStorage);
+    });
+}
+
+function saveFormToStorage() {
+    const formData = {};
+    document.querySelectorAll("[data-field]").forEach(el => {
+        formData[el.dataset.field] = el.value;
+    });
+    try { localStorage.setItem(STORAGE_KEY_FORM, JSON.stringify(formData)); } catch(e) {}
+    try { localStorage.setItem(STORAGE_KEY_STEP, currentStep.toString()); } catch(e) {}
+}
+
+function savePhotosToStorage() {
+    try { localStorage.setItem(STORAGE_KEY_PHOTOS, JSON.stringify(photos)); } catch(e) {
+        // If too large for localStorage, save just the keys (photos saved on server)
+        console.warn("Photos too large for localStorage, saving keys only");
+        try { localStorage.setItem(STORAGE_KEY_PHOTOS, JSON.stringify(Object.fromEntries(
+            Object.keys(photos).map(k => [k, "saved"])
+        ))); } catch(e2) {}
+    }
+}
+
+function restoreFromStorage() {
+    // Restore form data
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY_FORM);
+        if (saved) {
+            const formData = JSON.parse(saved);
+            for (const [field, value] of Object.entries(formData)) {
+                const el = document.querySelector(`[data-field="${field}"]`);
+                if (el && value) el.value = value;
+            }
+            showToast("נתונים שמורים שוחזרו");
+        }
+    } catch(e) {}
+
+    // Restore photos
+    try {
+        const savedPhotos = localStorage.getItem(STORAGE_KEY_PHOTOS);
+        if (savedPhotos) {
+            const photoData = JSON.parse(savedPhotos);
+            for (const [key, val] of Object.entries(photoData)) {
+                if (val && val !== "saved" && val.startsWith("data:")) {
+                    photos[key] = val;
+                    markPhotoCapturedSilent(key);
+                }
+            }
+        }
+    } catch(e) {}
+
+    // Restore step
+    try {
+        const savedStep = localStorage.getItem(STORAGE_KEY_STEP);
+        if (savedStep) {
+            currentStep = parseInt(savedStep) || 0;
+            updateSteps();
+        }
+    } catch(e) {}
+}
+
+// Mark photo as captured without triggering download (for restore)
+function markPhotoCapturedSilent(key) {
+    const item = document.getElementById(`photo-item-${key}`);
+    if (!item) return;
+    item.classList.add("captured");
+    const preview = document.getElementById(`preview-${key}`);
+    if (preview) preview.src = photos[key];
+    const retake = document.getElementById(`retake-${key}`);
+    if (retake) retake.style.display = "block";
+    const captureBtn = item.querySelector(".capture-btn:not(.retake)");
+    if (captureBtn) captureBtn.textContent = "✓ צולם";
+}
+
+// ===== Fetch secretary data when license number is entered =====
+function setupLicenseFetch() {
+    const licenseInput = document.getElementById("f-license");
+    let fetchTimeout = null;
+    licenseInput.addEventListener("input", () => {
+        clearTimeout(fetchTimeout);
+        const val = licenseInput.value.trim();
+        if (val.length >= 5) {
+            fetchTimeout = setTimeout(() => fetchSecretary(val), 400);
+        }
+    });
+}
+
+async function fetchSecretary(licenseNum) {
+    try {
+        const resp = await fetch(`/api/secretary?manufacturer=${encodeURIComponent(manufacturer)}&date=${encodeURIComponent(dateFolder)}&vehicle=${encodeURIComponent(vehicleName)}&category=${encodeURIComponent(category)}`);
+        const data = await resp.json();
+        if (data && Object.keys(data).length > 0) {
+            secretary = data;
+            secretaryLoaded = true;
+            updateRefValues();
+            revalidateAll();
+            // Update banner with license
+            const banner = document.getElementById("banner-license");
+            if (banner) banner.textContent = licenseNum;
+            showToast("נתוני מזכירה נטענו עבור רכב " + licenseNum);
+        }
+    } catch (err) {
+        console.error("Failed to fetch secretary data:", err);
+    }
+}
+
+// ===== Show reference values from secretary below each validated field =====
+function updateRefValues() {
+    for (const [fieldId, config] of Object.entries(VALIDATE_MAP)) {
+        const input = document.getElementById(`f-${fieldId}`);
+        if (!input) continue;
+
+        // Find the first non-empty reference value
+        let refVal = "";
+        for (const refKey of config.refs) {
+            const v = (secretary[refKey] || "").toString().trim();
+            if (v && v !== "-") { refVal = v; break; }
+        }
+
+        // Remove existing ref-value element if any
+        const parent = input.closest(".field-input") || input.parentElement;
+        let refEl = parent.querySelector(".ref-value");
+        if (!refEl) {
+            refEl = document.createElement("div");
+            refEl.className = "ref-value";
+            parent.appendChild(refEl);
+        }
+
+        if (refVal) {
+            refEl.innerHTML = `<span class="ref-val-text">${refVal}</span>`;
+            refEl.style.display = "block";
+            input.placeholder = refVal;
+        } else {
+            refEl.innerHTML = `<span style="color:#94a3b8;">נתון לא הוקלד ע"י מזכירה</span>`;
+            refEl.style.display = "block";
+            input.placeholder = "";
+        }
+    }
+}
+
+// ===== Re-validate all fields after secretary data is refreshed =====
+function revalidateAll() {
+    for (const fieldId of Object.keys(VALIDATE_MAP)) {
+        const input = document.getElementById(`f-${fieldId}`);
+        if (input && input.value.trim()) {
+            validateField(input, fieldId);
+        }
+    }
+}
+
+// ===== Unified validation =====
+function setupValidation() {
+    for (const fieldId of Object.keys(VALIDATE_MAP)) {
+        const input = document.getElementById(`f-${fieldId}`);
+        if (!input) continue;
+        input.addEventListener("input", () => validateField(input, fieldId));
+    }
+}
+
+function normalize(s) {
+    return (s || "").toString().replace(/\s+/g, "").toUpperCase();
+}
+
+function validateField(input, fieldId) {
+    const val = normalize(input.value);
+    if (!val || !secretaryLoaded) {
+        input.classList.remove("mismatch", "match");
+        return;
+    }
+
+    const config = VALIDATE_MAP[fieldId];
+    if (!config) return;
+
+    // Collect all reference values for this field
+    const refs = config.refs
+        .map(k => normalize(secretary[k] || ""))
+        .filter(r => r && r !== "-");
+
+    if (refs.length === 0) {
+        input.classList.remove("mismatch", "match");
+        return;
+    }
+
+    // Exact match comparison (after normalization: no spaces, uppercase)
+    const isMatch = refs.some(r => val === r);
+
+    input.classList.toggle("mismatch", !isMatch);
+    input.classList.toggle("match", isMatch);
+}
+
+// ===== Photo Grid =====
+function buildPhotoGrid() {
+    const grid = document.getElementById("photo-grid");
+    let visibleIndex = 0;
+    photoList.forEach((p, i) => {
+        if (p.hidden) return; // inline photos, not shown in grid
+        visibleIndex++;
+        const div = document.createElement("div");
+        div.className = "photo-item";
+        div.id = `photo-item-${p.key}`;
+        div.innerHTML = `
+            <h3>
+                <span class="num">${visibleIndex}</span>
+                ${p.label}
+                <span class="check">✓</span>
+            </h3>
+            <img class="photo-preview" id="preview-${p.key}" alt="${p.label}">
+            <button class="capture-btn" onclick="openCamera('${p.key}')">📷 צלם</button>
+            <button class="capture-btn retake" onclick="openCamera('${p.key}')" style="display:none;" id="retake-${p.key}">צלם מחדש</button>
+        `;
+        grid.appendChild(div);
+    });
+}
+
+// ===== Camera =====
+async function openCamera(key) {
+    currentPhotoKey = key;
+    const modal = document.getElementById("camera-modal");
+    const video = document.getElementById("camera-video");
+    modal.classList.add("open");
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { exact: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+            audio: false
+        });
+        video.srcObject = cameraStream;
+    } catch (err) {
+        closeCamera();
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.capture = "environment";
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                openEditor(ev.target.result, key);
+            };
+            reader.readAsDataURL(file);
+        };
+        input.click();
+    }
+}
+
+function takePhoto() {
+    const video = document.getElementById("camera-video");
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    closeCamera();
+    // Open editor instead of saving directly
+    openEditor(dataUrl, currentPhotoKey);
+}
+
+function closeCamera() {
+    const modal = document.getElementById("camera-modal");
+    modal.classList.remove("open");
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+}
+
+// ===== Photo Editor =====
+let editorImg = null;        // original Image object
+let editorRotation = 0;      // 0, 90, 180, 270
+let editorKey = null;        // which photo key we're editing
+let cropMode = false;
+let cropStart = null;
+let cropEnd = null;
+let cropRect = null;         // {x, y, w, h} in canvas coordinates
+
+function openEditor(dataUrl, key) {
+    editorKey = key;
+    editorRotation = 0;
+    cropMode = false;
+    cropRect = null;
+    document.getElementById("btn-crop-toggle").classList.remove("active");
+    document.getElementById("crop-overlay").classList.remove("active");
+    document.getElementById("editor-title").textContent = photoList.find(p => p.key === key)?.label || "עריכת תמונה";
+
+    // Open modal FIRST so wrap has dimensions
+    document.getElementById("editor-modal").classList.add("open");
+
+    editorImg = new Image();
+    editorImg.onload = () => {
+        // Small delay to let the modal fully render and get dimensions
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                drawEditor();
+                setupCropTouch();
+            });
+        });
+    };
+    editorImg.src = dataUrl;
+}
+
+function drawEditor() {
+    const canvas = document.getElementById("editor-canvas");
+    const ctx = canvas.getContext("2d");
+    const wrap = document.getElementById("editor-wrap");
+
+    const w = editorImg.naturalWidth;
+    const h = editorImg.naturalHeight;
+    const rad = (editorRotation * Math.PI) / 180;
+    const absCos = Math.abs(Math.cos(rad));
+    const absSin = Math.abs(Math.sin(rad));
+
+    // Bounding box of rotated image
+    const cw = w * absCos + h * absSin;
+    const ch = w * absSin + h * absCos;
+
+    // Scale to fit wrap
+    const maxW = wrap.clientWidth || window.innerWidth;
+    const maxH = wrap.clientHeight || (window.innerHeight - 140);
+    const scale = Math.min(maxW / cw, maxH / ch, 1);
+    canvas.width = Math.round(cw * scale);
+    canvas.height = Math.round(ch * scale);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(rad);
+    ctx.drawImage(editorImg, -w * scale / 2, -h * scale / 2, w * scale, h * scale);
+    ctx.restore();
+
+    // Reset crop overlay
+    document.getElementById("crop-overlay").classList.remove("active");
+    cropRect = null;
+}
+
+function editorRotate() {
+    editorRotation = (editorRotation + 45) % 360;
+    drawEditor();
+}
+
+function editorToggleCrop() {
+    cropMode = !cropMode;
+    document.getElementById("btn-crop-toggle").classList.toggle("active", cropMode);
+    if (!cropMode) {
+        document.getElementById("crop-overlay").classList.remove("active");
+        cropRect = null;
+    }
+}
+
+let cropListenersAttached = false;
+
+function setupCropTouch() {
+    if (cropListenersAttached) return;  // attach only once
+    cropListenersAttached = true;
+
+    const wrap = document.getElementById("editor-wrap");
+
+    function getCanvas() { return document.getElementById("editor-canvas"); }
+    function getOverlay() { return document.getElementById("crop-overlay"); }
+
+    function getPos(e) {
+        const cnv = getCanvas();
+        const rect = cnv.getBoundingClientRect();
+        return {
+            x: Math.max(0, Math.min(e.clientX - rect.left, rect.width)),
+            y: Math.max(0, Math.min(e.clientY - rect.top, rect.height))
+        };
+    }
+
+    wrap.addEventListener("pointerdown", (e) => {
+        if (!cropMode) return;
+        e.preventDefault();
+        cropStart = getPos(e);
+        cropEnd = null;
+        getOverlay().classList.add("active");
+    });
+
+    wrap.addEventListener("pointermove", (e) => {
+        if (!cropMode || !cropStart) return;
+        e.preventDefault();
+        cropEnd = getPos(e);
+        updateCropOverlay();
+    });
+
+    wrap.addEventListener("pointerup", (e) => {
+        if (!cropMode || !cropStart) return;
+        cropEnd = getPos(e);
+        updateCropOverlay();
+        cropStart = null;
+    });
+
+    function updateCropOverlay() {
+        if (!cropStart || !cropEnd) return;
+        const cnv = getCanvas();
+        const ovl = getOverlay();
+        const rect = cnv.getBoundingClientRect();
+        const wrapRect = wrap.getBoundingClientRect();
+        const x = Math.min(cropStart.x, cropEnd.x);
+        const y = Math.min(cropStart.y, cropEnd.y);
+        const w = Math.abs(cropEnd.x - cropStart.x);
+        const h = Math.abs(cropEnd.y - cropStart.y);
+
+        ovl.style.left = (rect.left - wrapRect.left + x) + "px";
+        ovl.style.top = (rect.top - wrapRect.top + y) + "px";
+        ovl.style.width = w + "px";
+        ovl.style.height = h + "px";
+
+        const scaleX = cnv.width / rect.width;
+        const scaleY = cnv.height / rect.height;
+        cropRect = {
+            x: Math.round(x * scaleX),
+            y: Math.round(y * scaleY),
+            w: Math.round(w * scaleX),
+            h: Math.round(h * scaleY)
+        };
+    }
+}
+
+function editorConfirm() {
+    const canvas = document.querySelector("#editor-modal canvas");
+
+    // First render the full-resolution rotated image
+    const w = editorImg.naturalWidth;
+    const h = editorImg.naturalHeight;
+    const rad = (editorRotation * Math.PI) / 180;
+    const absCos = Math.abs(Math.cos(rad));
+    const absSin = Math.abs(Math.sin(rad));
+    const fullW = Math.round(w * absCos + h * absSin);
+    const fullH = Math.round(w * absSin + h * absCos);
+
+    const fullCanvas = document.createElement("canvas");
+    fullCanvas.width = fullW;
+    fullCanvas.height = fullH;
+    const fctx = fullCanvas.getContext("2d");
+    fctx.translate(fullW / 2, fullH / 2);
+    fctx.rotate(rad);
+    fctx.drawImage(editorImg, -w / 2, -h / 2);
+
+    let resultCanvas;
+    if (cropRect && cropRect.w > 10 && cropRect.h > 10) {
+        // Map crop from display canvas to full-res canvas
+        const scaleX = fullW / canvas.width;
+        const scaleY = fullH / canvas.height;
+        const cx = Math.round(cropRect.x * scaleX);
+        const cy = Math.round(cropRect.y * scaleY);
+        const cw = Math.round(cropRect.w * scaleX);
+        const ch = Math.round(cropRect.h * scaleY);
+        resultCanvas = document.createElement("canvas");
+        resultCanvas.width = cw;
+        resultCanvas.height = ch;
+        resultCanvas.getContext("2d").drawImage(fullCanvas, cx, cy, cw, ch, 0, 0, cw, ch);
+    } else {
+        resultCanvas = fullCanvas;
+    }
+
+    const dataUrl = resultCanvas.toDataURL("image/jpeg", 0.88);
+    photos[editorKey] = dataUrl;
+    markPhotoCaptured(editorKey);
+    closeEditor();
+}
+
+function editorCancel() {
+    closeEditor();
+}
+
+function closeEditor() {
+    document.getElementById("editor-modal").classList.remove("open");
+    editorImg = null;
+    cropRect = null;
+    cropMode = false;
+}
+
+// ===== Save photo (after editor) =====
+function markPhotoCaptured(key) {
+    const item = document.getElementById(`photo-item-${key}`);
+    if (item) {
+        // Standard photo grid item
+        item.classList.add("captured");
+        const preview = document.getElementById(`preview-${key}`);
+        preview.src = photos[key];
+        const retake = document.getElementById(`retake-${key}`);
+        if (retake) retake.style.display = "block";
+        item.querySelector(".capture-btn:not(.retake)").textContent = "✓ צולם";
+    }
+    updateRefThumbs();
+    savePhotosToStorage();
+    saveToGallery(key, photos[key]);
+    // Save photo to server folder immediately
+    savePhotoToServer(key, photos[key]);
+}
+
+function savePhotoToServer(key, dataUrl) {
+    fetch("/api/save_photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ manufacturer, date: dateFolder, vehicle: vehicleName, key, data: dataUrl })
+    }).then(r => r.json()).then(res => {
+        if (res.ok) console.log("Photo saved:", res.file);
+        else console.warn("Photo save failed:", res.error);
+    }).catch(err => console.warn("Photo upload error:", err));
+}
+
+function saveToGallery(key, dataUrl) {
+    try {
+        const link = document.createElement("a");
+        const license = document.getElementById("f-license")?.value || "vehicle";
+        link.href = dataUrl;
+        link.download = `${license}_${key}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (e) {
+        console.warn("Could not auto-download photo:", e);
+    }
+}
+
+// ===== Reference thumbnails next to fields =====
+function updateRefThumbs() {
+    document.querySelectorAll(".ref-thumb").forEach(img => {
+        const photoKey = img.dataset.photo;
+        if (photos[photoKey]) {
+            img.src = photos[photoKey];
+            img.style.display = "block";
+            img.onclick = () => openLightbox(photos[photoKey]);
+        } else {
+            img.style.display = "none";
+        }
+    });
+}
+
+function openLightbox(src) {
+    document.getElementById("lightbox-img").src = src;
+    document.getElementById("lightbox").classList.add("open");
+}
+function closeLightbox() {
+    document.getElementById("lightbox").classList.remove("open");
+}
+
+// ===== Step Navigation =====
+const TOTAL_STEPS = 4; // 0=photos, 1=data, 2=deficiencies, 3=summary
+
+function updateSteps() {
+    document.querySelectorAll(".step").forEach((s, i) => {
+        s.classList.toggle("active", i === currentStep);
+    });
+    document.querySelectorAll(".step-dot").forEach((d, i) => {
+        d.classList.toggle("active", i === currentStep);
+        d.classList.toggle("done", i < currentStep);
+    });
+    document.getElementById("btn-prev").disabled = currentStep === 0;
+    document.getElementById("btn-next").style.display = currentStep < TOTAL_STEPS - 1 ? "" : "none";
+    document.getElementById("btn-save").style.display = currentStep === TOTAL_STEPS - 1 ? "" : "none";
+    if (currentStep === 2) loadDeficiencies();
+    if (currentStep === TOTAL_STEPS - 1) buildSummary();
+}
+
+function nextStep() {
+    if (currentStep < TOTAL_STEPS - 1) { currentStep++; updateSteps(); window.scrollTo(0, 0); saveFormToStorage(); }
+}
+function prevStep() {
+    if (currentStep > 0) { currentStep--; updateSteps(); window.scrollTo(0, 0); saveFormToStorage(); }
+}
+
+// ===== Summary =====
+function buildSummary() {
+    const photoCount = Object.keys(photos).length;
+    const totalPhotos = photoList.length;
+    document.getElementById("summary-photos").innerHTML =
+        `<p>📸 תמונות: <strong>${photoCount}/${totalPhotos}</strong> צולמו</p>`;
+
+    const mismatches = document.querySelectorAll("input.mismatch");
+    if (mismatches.length > 0) {
+        let details = "";
+        mismatches.forEach(el => {
+            const label = el.closest(".field-row")?.querySelector("label")?.textContent || "";
+            details += `<li>${label}: הוקלד "${el.value}"</li>`;
+        });
+        document.getElementById("summary-mismatches").innerHTML =
+            `<p style="color:var(--danger);">⚠ ${mismatches.length} שדות לא תואמים לנתוני מזכירה:</p><ul style="color:var(--danger);margin:8px 20px;">${details}</ul>`;
+    } else {
+        document.getElementById("summary-mismatches").innerHTML =
+            `<p style="color:var(--success);">✓ כל השדות תואמים</p>`;
+    }
+    document.getElementById("summary-status").innerHTML =
+        `<p style="color:var(--muted);">לחץ "שמור הכל" לשמירת הנתונים באקסל ותמונות בתיקייה</p>`;
+}
+
+// ===== Save =====
+async function saveAll() {
+    const btn = document.getElementById("btn-save");
+    btn.disabled = true;
+    btn.textContent = "⏳ שומר...";
+
+    const form = {};
+    document.querySelectorAll("[data-field]").forEach(el => {
+        form[el.dataset.field] = el.value;
+    });
+
+    try {
+        // Save form data to Excel
+        const resp = await fetch("/api/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ manufacturer, date: dateFolder, vehicle: vehicleName, form })
+        });
+        const result = await resp.json();
+        if (result.ok) {
+            // Also re-save any photos that might not have been saved yet
+            for (const [key, dataUrl] of Object.entries(photos)) {
+                if (dataUrl && dataUrl.startsWith("data:")) {
+                    await fetch("/api/save_photo", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ manufacturer, date: dateFolder, vehicle: vehicleName, key, data: dataUrl })
+                    });
+                }
+            }
+            showToast("נשמר בהצלחה!");
+            // Clear localStorage for this inspection
+            try {
+                localStorage.removeItem(STORAGE_KEY_FORM);
+                localStorage.removeItem(STORAGE_KEY_PHOTOS);
+                localStorage.removeItem(STORAGE_KEY_STEP);
+            } catch(e) {}
+            // Redirect to home after 2 seconds
+            setTimeout(() => { window.location.href = "/"; }, 2000);
+        } else {
+            showToast("שגיאה: " + result.error, true);
+            btn.disabled = false;
+            btn.textContent = "💾 שמור הכל";
+        }
+    } catch (err) {
+        showToast("שגיאת תקשורת: " + err.message, true);
+        btn.disabled = false;
+        btn.textContent = "💾 שמור הכל";
+    }
+}
+
+// ===== Classification searchable dropdown =====
+function getClassCode(s) {
+    const m = s.match(/(\d+)\s*$/);
+    return m ? parseInt(m[1]) : 9999;
+}
+
+function buildClassificationDropdown() {
+    // Sort by numeric code
+    classifications.sort((a, b) => getClassCode(a) - getClassCode(b));
+
+    const dropdown = document.getElementById("class-dropdown");
+    if (!dropdown) return;
+    dropdown.innerHTML = "";
+    classifications.forEach(opt => {
+        const div = document.createElement("div");
+        div.className = "class-option";
+        div.dataset.value = opt;
+        const parts = opt.split(" - ");
+        if (parts.length === 2) {
+            div.innerHTML = `<span>${parts[0]}</span><span class="class-code">${parts[1]}</span>`;
+        } else {
+            div.textContent = opt;
+        }
+        div.onclick = () => selectClassification(opt);
+        dropdown.appendChild(div);
+    });
+}
+
+function openClassDropdown() {
+    const dropdown = document.getElementById("class-dropdown");
+    dropdown.classList.add("open");
+    filterClassDropdown();
+}
+
+function closeClassDropdown() {
+    setTimeout(() => {
+        document.getElementById("class-dropdown").classList.remove("open");
+    }, 200);
+}
+
+function filterClassDropdown() {
+    const query = document.getElementById("f-classification").value.trim().toLowerCase();
+    document.querySelectorAll(".class-option").forEach(opt => {
+        const text = opt.dataset.value.toLowerCase();
+        opt.style.display = (!query || text.includes(query)) ? "" : "none";
+    });
+}
+
+function selectClassification(value) {
+    const input = document.getElementById("f-classification");
+    input.value = value;
+    document.getElementById("class-dropdown").classList.remove("open");
+    saveClassificationToExcel(value);
+    saveFormToStorage();
+}
+
+async function saveClassificationToExcel(value) {
+    try {
+        const resp = await fetch("/api/save_classification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                manufacturer,
+                date: dateFolder,
+                vehicle: vehicleName,
+                classification: value
+            })
+        });
+        const result = await resp.json();
+        if (result.ok) {
+            showToast("סיווג נשמר: " + value);
+        } else {
+            showToast("שגיאה: " + result.error, true);
+        }
+    } catch (err) {
+        showToast("שגיאת תקשורת", true);
+    }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener("click", (e) => {
+    const wrap = document.getElementById("classification-wrap");
+    if (wrap && !wrap.contains(e.target)) {
+        document.getElementById("class-dropdown").classList.remove("open");
+    }
+});
+
+// ===== Device toggle =====
+function toggleDevice(n) {
+    const fields = document.getElementById(`dev-fields-${n}`);
+    const btn = fields.previousElementSibling;
+    const isOpen = fields.style.display !== "none";
+    fields.style.display = isOpen ? "none" : "block";
+    btn.classList.toggle("open", !isOpen);
+}
+
+function showToast(msg, isError = false) {
+    const toast = document.getElementById("toast");
+    toast.textContent = msg;
+    toast.className = "toast show" + (isError ? " error" : "");
+    setTimeout(() => { toast.className = "toast"; }, 3500);
+}
+
+// ===== Deficiencies =====
+let deficienciesLoaded = false;
+let noteAutoSaveTimer = null;
+
+async function loadDeficiencies() {
+    if (deficienciesLoaded) return;
+    try {
+        const resp = await fetch(`/api/deficiencies?manufacturer=${encodeURIComponent(manufacturer)}&date=${encodeURIComponent(dateFolder)}&vehicle=${encodeURIComponent(vehicleName)}`);
+        const data = await resp.json();
+        deficienciesLoaded = true;
+        renderDeficiencies(data);
+    } catch (err) {
+        document.getElementById("deficiency-all-list").innerHTML =
+            '<p style="color:var(--danger);">שגיאה בטעינת נתונים</p>';
+    }
+}
+
+function renderDeficiencies(data) {
+    const def = data.deficiencies || {};
+    const notes = data.examiner_notes || [];
+
+    // Unified list - all deficiencies together
+    const allList = document.getElementById("deficiency-all-list");
+    const preItems = (def.pre || []).filter(d => d.finding);
+    const postItems = (def.post || []).filter(d => d.finding);
+
+    if (preItems.length === 0 && postItems.length === 0) {
+        allList.innerHTML = '<div class="def-empty">אין חוסרים רשומים</div>';
+    } else {
+        let html = "";
+        preItems.forEach(d => { html += renderDefItem(d, "pre"); });
+        postItems.forEach(d => { html += renderDefItem(d, "post"); });
+        allList.innerHTML = html;
+    }
+
+    // Examiner notes (editable, auto-save)
+    const notesList = document.getElementById("examiner-notes-list");
+    notesList.innerHTML = "";
+    for (let i = 0; i < 8; i++) {
+        const note = notes[i] || {};
+        const val = (note.finding && note.finding !== "-") ? note.finding : "";
+        const row = document.createElement("div");
+        row.className = "note-row";
+        row.innerHTML = `
+            <span class="note-num">${i + 1}</span>
+            <input type="text" id="note-${i}" placeholder="הערה ${i + 1}..." value="${val}" class="${val ? 'has-value' : ''}">
+        `;
+        notesList.appendChild(row);
+    }
+    // Setup auto-save on input
+    notesList.querySelectorAll("input").forEach(inp => {
+        inp.addEventListener("input", () => {
+            inp.classList.toggle("has-value", !!inp.value.trim());
+            scheduleNoteSave();
+        });
+    });
+}
+
+function renderDefItem(d, source) {
+    const badges = [];
+    if (d.doc_required && d.doc_required !== "-")
+        badges.push('<span class="def-badge">נדרש במסמך</span>');
+    if (d.photo_required && d.photo_required !== "-")
+        badges.push('<span class="def-badge">תיעוד בתמונה</span>');
+    if (d.reinspect && d.reinspect !== "-")
+        badges.push('<span class="def-badge">בדיקה חוזרת</span>');
+
+    return `<div class="def-item source-${source}">
+        <span class="def-num">${d.num}</span>
+        <div class="def-body">
+            <div class="def-text">${d.finding}</div>
+            ${badges.length ? `<div class="def-badges">${badges.join("")}</div>` : ""}
+        </div>
+    </div>`;
+}
+
+// Auto-save notes to Excel with debounce
+function scheduleNoteSave() {
+    clearTimeout(noteAutoSaveTimer);
+    noteAutoSaveTimer = setTimeout(autoSaveNotes, 1500);
+}
+
+async function autoSaveNotes() {
+    const notes = [];
+    for (let i = 0; i < 8; i++) {
+        const input = document.getElementById(`note-${i}`);
+        notes.push({
+            finding: input ? input.value.trim() : "",
+            doc_required: "",
+            photo_required: ""
+        });
+    }
+    try {
+        await fetch("/api/save_deficiency_notes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ manufacturer, date: dateFolder, vehicle: vehicleName, notes })
+        });
+    } catch (err) {
+        console.warn("Auto-save notes failed:", err);
+    }
+}
+
+async function shareWhatsApp() {
+    const btn = event.currentTarget;
+    btn.disabled = true;
+    btn.textContent = "⏳ שומר ומפיק...";
+
+    try {
+        // 1. שמירת הערות בוחן לאקסל
+        await autoSaveNotes();
+
+        const params = `manufacturer=${encodeURIComponent(manufacturer)}&date=${encodeURIComponent(dateFolder)}&vehicle=${encodeURIComponent(vehicleName)}`;
+
+        // 2. שמירת PDF + תמונה בתיקיית הרכב
+        await fetch(`/api/deficiency_pdf?${params}`);
+        fetch(`/api/deficiency_image?${params}`).catch(() => {});
+
+        // 3. קבלת טקסט החוסרים המפורט
+        const textResp = await fetch(`/api/deficiency_text?${params}`);
+        const textData = await textResp.json();
+        const msg = textData.text || "חוסרים";
+
+        // 4. פתיחת WhatsApp עם הודעת טקסט מפורטת
+        window.location.href = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
+        showToast("PDF נשמר בתיקיית הרכב");
+
+    } catch (err) {
+        showToast("שגיאה: " + err.message, true);
+    }
+    btn.disabled = false;
+    btn.textContent = "📱 שלח חוסרים ב-WhatsApp";
+}
+</script>
+
+</body>
+</html>
