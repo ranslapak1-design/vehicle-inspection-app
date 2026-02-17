@@ -1984,26 +1984,23 @@ async function autoSaveNotes() {
 async function shareWhatsApp() {
     const btn = event.currentTarget;
     btn.disabled = true;
-    btn.textContent = "⏳ שומר ומפיק...";
+    btn.textContent = "⏳ שולח...";
 
     try {
-        // 1. שמירת הערות בוחן לאקסל
-        await autoSaveNotes();
-
         const params = `manufacturer=${encodeURIComponent(manufacturer)}&date=${encodeURIComponent(dateFolder)}&vehicle=${encodeURIComponent(vehicleName)}`;
 
-        // 2. שמירת PDF + תמונה בתיקיית הרכב
-        await fetch(`/api/deficiency_pdf?${params}`);
-        fetch(`/api/deficiency_image?${params}`).catch(() => {});
-
-        // 3. קבלת טקסט החוסרים המפורט
+        // 1. שמירת הערות קודם, אחר כך קבלת טקסט
+        await autoSaveNotes();
         const textResp = await fetch(`/api/deficiency_text?${params}`);
         const textData = await textResp.json();
         const msg = textData.text || "חוסרים";
 
-        // 4. פתיחת WhatsApp עם הודעת טקסט מפורטת
+        // 2. פתיחת WhatsApp מיד
         window.location.href = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
-        showToast("PDF נשמר בתיקיית הרכב");
+
+        // 3. PDF + תמונה ברקע (לא חוסם)
+        fetch(`/api/deficiency_pdf?${params}`).catch(() => {});
+        fetch(`/api/deficiency_image?${params}`).catch(() => {});
 
     } catch (err) {
         showToast("שגיאה: " + err.message, true);

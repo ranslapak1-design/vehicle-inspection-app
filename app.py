@@ -691,15 +691,9 @@ def api_save_photo():
     header, b64data = photo_b64.split(",", 1)
     ext = "png" if "png" in header else "jpg"
     img_bytes = base64.b64decode(b64data)
-    fname = f"{photo_key}.{ext}"
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    fname = f"{photo_key}_{ts}.{ext}"
     target = photos_dir / fname
-
-    # If file already exists, rename the old one with a timestamp to keep it
-    if target.is_file():
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        old_name = f"{photo_key}_{ts}.{ext}"
-        target.rename(photos_dir / old_name)
-
     target.write_bytes(img_bytes)
 
     return jsonify({"ok": True, "file": str(target)})
@@ -772,8 +766,7 @@ def api_deficiency_text():
 
     # Build text message
     lines = []
-    lines.append("📋 *חוסרים*")
-    lines.append(f"רכב: {vehicle}")
+    lines.append("📋 *חוסרים ופערים*")
     if license_num:
         lines.append(f"מס׳ רישוי: {license_num}")
     if vin_num:
@@ -807,7 +800,6 @@ def api_deficiency_text():
     note_items = [n for n in examiner_notes if n.get("finding") and n["finding"] != "-"]
     if note_items:
         has_items = True
-        lines.append("📝 *הערות בוחן:*")
         for note in note_items:
             lines.append(f"{idx}. {note['finding']}")
             idx += 1
@@ -815,8 +807,6 @@ def api_deficiency_text():
 
     if not has_items:
         lines.append("אין חוסרים.")
-
-    lines.append("📎 קובץ PDF מלא נשמר בתיקיית הרכב.")
 
     return jsonify({"text": "\n".join(lines)})
 
